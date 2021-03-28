@@ -39,7 +39,7 @@ localparam ISINA=4, ISINB=1, ISINCL=0, ISINCH=3; // Control word bits
 localparam INTRA=3, OBFA=7, ACKA=6, STBA=4, IBFA=5, // PC bits, mode 2
            INTRB=0, OBFB=1, ACKB=2, STBB=2, IBFB=1;
 
-localparam INTEA=4, INTEB=2;
+localparam INTEA_OBF=6, INTEA_IBF=4, INTEB=2;
 
 reg  [6:0] ctrl;
 reg  [7:0] latch_a, latch_b, latch_c;
@@ -51,9 +51,11 @@ wire [1:0] mode_a;
 wire       write, read;
 reg        last_write, last_read;
 
-reg        inte_a, inte_b;
-
+reg        inte_a_obf, inte_a_ibf, inte_b;
 wire       acka, ackb, stba, stbb;
+
+reg        last_acka, last_ackb, last_stba;
+wire       last_stbb;
 
 assign read   = !rdn && !csn;
 assign write  = !wrn && !csn;
@@ -71,22 +73,23 @@ assign ackb    = portc_din[ACKB];
 assign stbb    = portc_din[STBB]; // this is the same as ackb
 assign last_stbb = last_ackb;
 
-reg  last_acka, last_ackb, last_stba;
-wire last_stbb;
 
 // Mode control
 always @(posedge clk, posedge rst) begin
     if( rst ) begin
         ctrl       <= 7'h1b;
-        last_write <= 0;
         latch_a    <= 8'hff;
         latch_b    <= 8'hff;
         latch_c    <= 8'hff;
+
+        inte_a_ibf <= 0;
+        inte_a_obf <= 0;
+        inte_b     <= 0;
+
+        last_write <= 0;
         last_acka  <= 0;
         last_ackb  <= 0;
         last_stba  <= 0;
-        inte_a     <= 0;
-        inte_b     <= 0;
     end else begin
         last_write <= write;
         last_acka  <= acka;
@@ -99,8 +102,8 @@ always @(posedge clk, posedge rst) begin
                     if( !isin_a ) begin
                         latch_a <= din; // A is an output
                         if( mode_a!=0 ) begin
-                            latch_c[OBFA] <= 1;
-                            if(inte_a) latch_c[INTRA] <= 0;  // interrupt pin
+                            latch_c[OBFA] <= 0;
+                            if(inte_a_obf) latch_c[INTRA] <= 0;  // interrupt pin
                         end
                     end
                 end
@@ -108,7 +111,7 @@ always @(posedge clk, posedge rst) begin
                     if( !isin_b ) begin
                         latch_b <= din; // B is an output
                         if( mode_b ) begin
-                            latch_c[OBFB] <= 1;
+                            latch_c[OBFB] <= 0;
                             if(inte_b) latch_c[INTRB] <= 0;  // interrupt pin
                         end
                     end                end
@@ -134,27 +137,44 @@ always @(posedge clk, posedge rst) begin
                         if( !din[ISINCH] ) latch_c[7:4] <= 0;
                         if( !din[ISINB]  ) latch_b <= 0;
                         if( !din[ISINA]  ) latch_a <= 0;
+                        inte_a_ibf <= 0;
+                        inte_a_obf <= 0;
+                        inte_b     <= 0;
+                        if( din[2] ) begin
+                            latch_c[IBFB] <= ~din[ISINB]; // start with safe IBF/OBF signals
+                            latch_c[INTRB]<= ~din[ISINB];
+                        end
+                        if( din[6:5]!=0 ) begin
+                            latch_c[IBFA] <= 0;
+                            latch_c[OBFA] <= 1;
+                            latch_c[INTRA]<= 0;
+                        end
                     end else begin
                         latch_c[ din[3:1] ] <= din[0];
-                        if( din[3:1]==INTEA ) inte_a <= din[0];
+                        if( din[3:1]==INTEA_OBF ) inte_a_obf <= din[0];
+                        if( din[3:1]==INTEA_IBF ) inte_a_ibf <= din[0];
                         if( din[3:1]==INTEB ) inte_b <= din[0];
                     end
                 end
             endcase
         end else begin
             // Input Buffer Full
-            if( mode_b && !isin_b && stbb && !last_stbb )
+            if( mode_b && !isin_b && stbb && !last_stbb ) begin
                 latch_c[IBFB] <= 1;
-            if( mode_a!=0 && !isin_a && stba && !last_stba )
+                if( inte_b ) latch_c[INTRB] <= 1;
+            end
+            if( mode_a!=0 && !isin_a && stba && !last_stba ) begin
                 latch_c[IBFA] <= 1;
+                if( inte_a_ibf ) latch_c[INTRA] <= 1;
+            end
             // clears the interrupts
-            if(!inte_a) latch_c[INTRA] <= 0;
+            if(!inte_a_ibf && !inte_a_obf) latch_c[INTRA] <= 0;
             if(!inte_b) latch_c[INTRB] <= 0;
             if( mode_a!=2'd00 ) begin
                 // The peripheral reads
                 if( !isin_a && acka && !last_acka ) begin
-                    latch_c[INTRA] <= 0;
-                    latch_c[OBFA]  <= 0;
+                    latch_c[INTRA] <= 1;
+                    latch_c[OBFA]  <= 1;
                 end
                 // The CPU reads
                 if( isin_a && read && !last_read && addr==2'd0 ) begin
@@ -165,8 +185,8 @@ always @(posedge clk, posedge rst) begin
             if( mode_b ) begin
                 // The peripheral reads
                 if( !isin_b && ackb && !last_ackb ) begin
-                    latch_c[INTRB] <= 0;
-                    latch_c[OBFB]  <= 0;
+                    latch_c[INTRB] <= 1;
+                    latch_c[OBFB]  <= 1;
                 end
                 // The CPU reads
                 if( isin_b && read && !last_read && addr==2'd1 ) begin
