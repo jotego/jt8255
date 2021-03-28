@@ -99,7 +99,7 @@ always @(posedge clk, posedge rst) begin
         if( !write && last_write ) begin
             case( addr )
                 2'd0: begin // Port A
-                    if( !isin_a ) begin
+                    if( !isin_a || mode_a[1] ) begin
                         latch_a <= din; // A is an output
                         if( mode_a!=0 ) begin
                             latch_c[OBFA] <= 0;
@@ -159,11 +159,11 @@ always @(posedge clk, posedge rst) begin
             endcase
         end else begin
             // Input Buffer Full
-            if( mode_b && !isin_b && stbb && !last_stbb ) begin
+            if( mode_b && isin_b && stbb && !last_stbb ) begin
                 latch_c[IBFB] <= 1;
                 if( inte_b ) latch_c[INTRB] <= 1;
             end
-            if( mode_a!=0 && !isin_a && stba && !last_stba ) begin
+            if( (mode_a[1] || (mode_a[0] && isin_a)) && stba && !last_stba ) begin
                 latch_c[IBFA] <= 1;
                 if( inte_a_ibf ) latch_c[INTRA] <= 1;
             end
@@ -172,12 +172,12 @@ always @(posedge clk, posedge rst) begin
             if(!inte_b) latch_c[INTRB] <= 0;
             if( mode_a!=2'd00 ) begin
                 // The peripheral reads
-                if( !isin_a && acka && !last_acka ) begin
+                if( (!isin_a || mode_a[1]) && acka && !last_acka ) begin
                     latch_c[INTRA] <= 1;
                     latch_c[OBFA]  <= 1;
                 end
                 // The CPU reads
-                if( isin_a && read && !last_read && addr==2'd0 ) begin
+                if( (isin_a || mode_a[1]) && read && !last_read && addr==2'd0 ) begin
                     latch_c[INTRA] <= 0;
                     latch_c[IBFA]  <= 0;
                 end
@@ -216,9 +216,11 @@ always @(posedge clk, posedge rst) begin
                     if( mode_b )
                         dout[2:0] <= { ackb, latch_c[1:0] };
                     if( mode_a!=0 )
-                        dout[5:3] <= { acka, latch_c[4:3] };
-                    if( mode_a[1] )
-                        dout[7:4] <= { latch_c[7], acka, latch_c[5], stba };
+                        dout[3] <= latch_c[INTRA];
+                    if( (mode_a[0] && !isin_a) || mode_a[1] )
+                        dout[5:4] <= { acka, latch_c[4] };
+                    if( (mode_a[0] && isin_a) || mode_a[1] )
+                        dout[7:6] <= { latch_c[OBFA], acka };
                 end
                 2'd3: dout <= { 1'b1, ctrl };
             endcase
