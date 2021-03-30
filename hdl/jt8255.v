@@ -116,19 +116,24 @@ always @(posedge clk, posedge rst) begin
                         end
                     end                end
                 2'd2: begin
-                    case( {mode_a, mode_b} )
-                        3'b00_0: begin
-                            if(!isin_ch) latch_c[7:4] <= din[7:4];
-                            if(!isin_cl) latch_c[3:0] <= din[3:0];
-                        end
-                        // Mode 1 for port B
-                        3'b00_1: if(!isin_ch) latch_c[7:4] <= din[7:4];
-                        // Mode 1 for port A
-                        3'b01_0: if(!isin_cl) latch_c[3:0] <= din[3:0];
-                        // Mode 2 for port A
-                        3'b10_0: if(!isin_cl) latch_c[2:0] <= din[2:0];
-                        default:; // ignore input
-                    endcase
+                    if( mode_b )
+                        inte_b <= din[INTEB];
+                    else
+                        latch_c[2:0] <= din[2:0];
+
+                    if( (mode_a==0 || (mode_a[0]&&isin_a)) )
+                        latch_c[7:6] <= din[7:6];
+
+                    if( mode_a==0 || (mode_a[0]&&!isin_a) )
+                        latch_c[5:4] <= din[5:4];
+
+                    if( mode_a==0 )
+                        latch_c[3] <= din[3];
+
+                    if( mode_a[1] || (mode_a[0] && isin_a) )
+                        inte_a_ibf <= din[INTEA_IBF];
+                    if( mode_a[1] || (mode_a[0] && !isin_a) )
+                        inte_a_obf <= din[INTEA_OBF];
                 end
                 2'd3: begin
                     if( din[7] ) begin
@@ -230,6 +235,9 @@ end
 
 // Output port registers
 assign portc_dout = latch_c;
+
+always @(*) begin
+end
 
 always @(posedge clk) begin
     porta_dout <= isin_a ? porta_din : latch_a;
