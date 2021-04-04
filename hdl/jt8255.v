@@ -236,9 +236,6 @@ end
 // Output port registers
 assign portc_dout = latch_c;
 
-always @(*) begin
-end
-
 always @(posedge clk) begin
     porta_dout <= isin_a ? porta_din : latch_a;
     portb_dout <= isin_b ? portb_din : latch_b;
