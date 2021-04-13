@@ -172,10 +172,9 @@ always @(posedge clk, posedge rst) begin
                 latch_c[IBFA] <= 1;
                 if( inte_a_ibf ) latch_c[INTRA] <= 1;
             end
-            // clears the interrupts
-            if(!inte_a_ibf && !inte_a_obf) latch_c[INTRA] <= 0;
-            if(!inte_b) latch_c[INTRB] <= 0;
             if( mode_a!=2'd00 ) begin
+                // clears the interrupts
+                if(!inte_a_ibf && !inte_a_obf) latch_c[INTRA] <= 0;
                 // The peripheral reads
                 if( (!isin_a || mode_a[1]) && acka && !last_acka ) begin
                     latch_c[INTRA] <= 1;
@@ -188,6 +187,8 @@ always @(posedge clk, posedge rst) begin
                 end
             end
             if( mode_b ) begin
+                // clears the interrupts
+                if(!inte_b) latch_c[INTRB] <= 0;
                 // The peripheral reads
                 if( !isin_b && ackb && !last_ackb ) begin
                     latch_c[INTRB] <= 1;
