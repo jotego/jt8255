@@ -42,7 +42,7 @@ localparam INTRA=3, OBFA=7, ACKA=6, STBA=4, IBFA=5, // PC bits, mode 2
 localparam INTEA_OBF=6, INTEA_IBF=4, INTEB=2;
 
 reg  [6:0] ctrl;
-reg  [7:0] latch_a, latch_b, latch_c;
+reg  [7:0] latch_a, latch_b, latch_c, ldin;
 
 wire       mode_b,
            isin_a, isin_b, isin_cl, isin_ch; // is input a,b,c...
@@ -95,12 +95,13 @@ always @(posedge clk, posedge rst) begin
         last_acka  <= acka;
         last_ackb  <= ackb;
         last_stba  <= stba;
+        ldin       <= din;
 
         if( !write && last_write ) begin
             case( addr )
                 2'd0: begin // Port A
                     if( !isin_a || mode_a[1] ) begin
-                        latch_a <= din; // A is an output
+                        latch_a <= ldin; // A is an output
                         if( mode_a!=0 ) begin
                             latch_c[OBFA] <= 0;
                             if(inte_a_obf) latch_c[INTRA] <= 0;  // interrupt pin
@@ -109,7 +110,7 @@ always @(posedge clk, posedge rst) begin
                 end
                 2'd1: begin // Port B
                     if( !isin_b ) begin
-                        latch_b <= din; // B is an output
+                        latch_b <= ldin; // B is an output
                         if( mode_b ) begin
                             latch_c[OBFB] <= 0;
                             if(inte_b) latch_c[INTRB] <= 0;  // interrupt pin
@@ -117,48 +118,48 @@ always @(posedge clk, posedge rst) begin
                     end                end
                 2'd2: begin
                     if( mode_b )
-                        inte_b <= din[INTEB];
+                        inte_b <= ldin[INTEB];
                     else
-                        latch_c[2:0] <= din[2:0];
+                        latch_c[2:0] <= ldin[2:0];
 
                     if( (mode_a==0 || (mode_a[0]&&isin_a)) )
-                        latch_c[7:6] <= din[7:6];
+                        latch_c[7:6] <= ldin[7:6];
 
                     if( mode_a==0 || (mode_a[0]&&!isin_a) )
-                        latch_c[5:4] <= din[5:4];
+                        latch_c[5:4] <= ldin[5:4];
 
                     if( mode_a==0 )
-                        latch_c[3] <= din[3];
+                        latch_c[3] <= ldin[3];
 
                     if( mode_a[1] || (mode_a[0] && isin_a) )
-                        inte_a_ibf <= din[INTEA_IBF];
+                        inte_a_ibf <= ldin[INTEA_IBF];
                     if( mode_a[1] || (mode_a[0] && !isin_a) )
-                        inte_a_obf <= din[INTEA_OBF];
+                        inte_a_obf <= ldin[INTEA_OBF];
                 end
                 2'd3: begin
-                    if( din[7] ) begin
-                        ctrl <= din[6:0];
-                        if( !din[ISINCL] ) latch_c[3:0] <= 0;
-                        if( !din[ISINCH] ) latch_c[7:4] <= 0;
-                        if( !din[ISINB]  ) latch_b <= 0;
-                        if( !din[ISINA]  ) latch_a <= 0;
+                    if( ldin[7] ) begin
+                        ctrl <= ldin[6:0];
+                        if( !ldin[ISINCL] ) latch_c[3:0] <= 0;
+                        if( !ldin[ISINCH] ) latch_c[7:4] <= 0;
+                        if( !ldin[ISINB]  ) latch_b <= 0;
+                        if( !ldin[ISINA]  ) latch_a <= 0;
                         inte_a_ibf <= 0;
                         inte_a_obf <= 0;
                         inte_b     <= 0;
-                        if( din[2] ) begin
-                            latch_c[IBFB] <= ~din[ISINB]; // start with safe IBF/OBF signals
-                            latch_c[INTRB]<= ~din[ISINB];
+                        if( ldin[2] ) begin
+                            latch_c[IBFB] <= ~ldin[ISINB]; // start with safe IBF/OBF signals
+                            latch_c[INTRB]<= ~ldin[ISINB];
                         end
-                        if( din[6:5]!=0 ) begin
+                        if( ldin[6:5]!=0 ) begin
                             latch_c[IBFA] <= 0;
                             latch_c[OBFA] <= 1;
                             latch_c[INTRA]<= 0;
                         end
                     end else begin
-                        latch_c[ din[3:1] ] <= din[0];
-                        if( din[3:1]==INTEA_OBF ) inte_a_obf <= din[0];
-                        if( din[3:1]==INTEA_IBF ) inte_a_ibf <= din[0];
-                        if( din[3:1]==INTEB ) inte_b <= din[0];
+                        latch_c[ ldin[3:1] ] <= ldin[0];
+                        if( ldin[3:1]==INTEA_OBF ) inte_a_obf <= ldin[0];
+                        if( ldin[3:1]==INTEA_IBF ) inte_a_ibf <= ldin[0];
+                        if( ldin[3:1]==INTEB ) inte_b <= ldin[0];
                     end
                 end
             endcase
