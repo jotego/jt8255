@@ -163,43 +163,42 @@ always @(posedge clk, posedge rst) begin
                     end
                 end
             endcase
-        end else begin
-            // Input Buffer Full
-            if( mode_b && isin_b && stbb && !last_stbb ) begin
-                latch_c[IBFB] <= 1;
-                if( inte_b ) latch_c[INTRB] <= 1;
+        end
+        // Input Buffer Full
+        if( mode_b && isin_b && stbb && !last_stbb ) begin
+            latch_c[IBFB] <= 1;
+            if( inte_b ) latch_c[INTRB] <= 1;
+        end
+        if( (mode_a[1] || (mode_a[0] && isin_a)) && stba && !last_stba ) begin
+            latch_c[IBFA] <= 1;
+            if( inte_a_ibf ) latch_c[INTRA] <= 1;
+        end
+        if( mode_a!=2'd00 ) begin
+            // clears the interrupts
+            if(!inte_a_ibf && !inte_a_obf) latch_c[INTRA] <= 0;
+            // The peripheral reads
+            if( (!isin_a || mode_a[1]) && acka && !last_acka ) begin
+                latch_c[INTRA] <= 1;
+                latch_c[OBFA]  <= 1;
             end
-            if( (mode_a[1] || (mode_a[0] && isin_a)) && stba && !last_stba ) begin
-                latch_c[IBFA] <= 1;
-                if( inte_a_ibf ) latch_c[INTRA] <= 1;
+            // The CPU reads
+            if( (isin_a || mode_a[1]) && read && !last_read && addr==2'd0 ) begin
+                latch_c[INTRA] <= 0;
+                latch_c[IBFA]  <= 0;
             end
-            if( mode_a!=2'd00 ) begin
-                // clears the interrupts
-                if(!inte_a_ibf && !inte_a_obf) latch_c[INTRA] <= 0;
-                // The peripheral reads
-                if( (!isin_a || mode_a[1]) && acka && !last_acka ) begin
-                    latch_c[INTRA] <= 1;
-                    latch_c[OBFA]  <= 1;
-                end
-                // The CPU reads
-                if( (isin_a || mode_a[1]) && read && !last_read && addr==2'd0 ) begin
-                    latch_c[INTRA] <= 0;
-                    latch_c[IBFA]  <= 0;
-                end
+        end
+        if( mode_b ) begin
+            // clears the interrupts
+            if(!inte_b) latch_c[INTRB] <= 0;
+            // The peripheral reads
+            if( !isin_b && ackb && !last_ackb ) begin
+                latch_c[INTRB] <= 1;
+                latch_c[OBFB]  <= 1;
             end
-            if( mode_b ) begin
-                // clears the interrupts
-                if(!inte_b) latch_c[INTRB] <= 0;
-                // The peripheral reads
-                if( !isin_b && ackb && !last_ackb ) begin
-                    latch_c[INTRB] <= 1;
-                    latch_c[OBFB]  <= 1;
-                end
-                // The CPU reads
-                if( isin_b && read && !last_read && addr==2'd1 ) begin
-                    latch_c[INTRB] <= 0;
-                    latch_c[IBFB]  <= 0;
-                end
+            // The CPU reads
+            if( isin_b && read && !last_read && addr==2'd1 ) begin
+                latch_c[INTRB] <= 0;
+                latch_c[IBFB]  <= 0;
             end
         end
     end
