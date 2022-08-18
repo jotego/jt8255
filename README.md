@@ -2,7 +2,7 @@
 Programmable peripheral interface compatible with Intel 8255, by Jose Tejada (aka jotego)
 
 You can show your appreciation through
-* [Patreon](https://patreon.com/topapate), by supporting releases
+* [Patreon](https://patreon.com/jotego), by supporting releases
 * [Paypal](https://paypal.me/topapate), with a donation
 
 JT8255 is a PPI written in Verilog, fully compatible with Intel 8255.
