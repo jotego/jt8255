@@ -173,7 +173,7 @@ always @(posedge clk, posedge rst) begin
             latch_c[IBFA] <= 1;
             if( inte_a_ibf ) latch_c[INTRA] <= 1;
         end
-        if( mode_a!=2'd00 ) begin
+        if( mode_a!=0 ) begin
             // clears the interrupts
             if(!inte_a_ibf && !inte_a_obf) latch_c[INTRA] <= 0;
             // The peripheral reads
